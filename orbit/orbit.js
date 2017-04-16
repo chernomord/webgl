@@ -1,7 +1,7 @@
 let SCREEN_WIDTH = window.innerWidth;
 let SCREEN_HEIGHT = window.innerHeight;
 
-let camera, container, scene, renderer, dirLight, orbiter, planet, orbitLine;
+let camera, container, scene, renderer, dirLight, orbiter, planet;
 
 init();
 render();
@@ -31,30 +31,20 @@ function init () {
     scene.add(planet.mesh);
 
     orbiter = new Orbiter(10, 0, 0, orbiterGeom, orbiterMaterial);
-    orbiter.setVector(0,-.18);
+    orbiter.setVector(0, -.18);
     scene.add(orbiter.mesh);
     orbiter2 = new Orbiter(6, 3, 0, orbiterGeom, orbiterMaterial);
-    orbiter2.setVector(.03,.18);
+    orbiter2.setVector(.03, .11);
     scene.add(orbiter2.mesh);
 
-    orbitLine = new THREE.Geometry();
-    let lineMaterial = new THREE.LineBasicMaterial({
-        color: 0x000033
-    });
 
-    orbitLine.vertices.push(5, 5, 0);
-    orbitLine.vertices.push(5, 15, 0);
-    orbitLine.vertices.push(25, 15, 0);
-
-    let line = new THREE.Line(orbitLine, lineMaterial);
-    scene.add(line);
 }
 
 
 function render () {
-    renderer.render(scene, camera);
     orbiter.update(planet);
     orbiter2.update(planet);
+    renderer.render(scene, camera);
     requestAnimationFrame(render);
 }
 
@@ -81,26 +71,66 @@ function Planet (gravity, x, y, z, geometry, material) {
 }
 
 function Orbiter (x, y, z, geometry, material) {
+    this.iteration = 0;
     this.position = {x, y, z};
     this.mesh = new THREE.Mesh(geometry, material);
     this.mesh.position.set(x, y, z);
 
+    let maxDraw = 20000;
+    this.drawCount = 2;
+
+    this.orbitLine = new THREE.BufferGeometry();
+    let lineMaterial = new THREE.LineBasicMaterial({color: 0x0000ff, linewidth: 2});
+    let positions = new Float32Array(maxDraw * 3); // 3 vertices per point
+    this.orbitLine.addAttribute('position', new THREE.BufferAttribute(positions, 3));
+    this.orbitLine.setDrawRange(0, this.drawCount);
+
+    this.line = new THREE.Line(this.orbitLine, lineMaterial);
+    this.line.material.color.setHSL(Math.random(), 1, 0.5);
+    this.line.geometry.attributes.position.array[this.iteration++] = x;
+    this.line.geometry.attributes.position.array[this.iteration++] = y;
+    this.line.geometry.attributes.position.array[this.iteration++] = z;
+    this.line.material.color.setHSL(Math.random(), 1, 0.5);
+    scene.add(this.line);
+
     Orbiter.prototype.update = function (planet) {
-        orbitLine.vertices.push(this.position.x, this.position.y, 0);
+        this.drawCount = ( this.drawCount + 2 ) % maxDraw;
+        this.line.geometry.setDrawRange(0, this.drawCount);
+        let positions = this.line.geometry.attributes.position.array;
+
+        // positions[this.iteration++] = this.position.x;
+        // positions[this.iteration++] = this.position.y;
+        // positions[this.iteration++] = 0;
+
+        if (this.drawCount === 0) {
+            this.iteration = 0;
+            scene.remove(this.orbitLine);
+            this.orbitLine = new THREE.BufferGeometry();
+            let lineMaterial = new THREE.LineBasicMaterial({color: 0x0000ff, linewidth: 2});
+            let positions = new Float32Array(maxDraw * 3); // 3 vertices per point
+            this.orbitLine.addAttribute('position', new THREE.BufferAttribute(positions, 3));
+            this.orbitLine.setDrawRange(0, this.drawCount);
+
+            this.line = new THREE.Line(this.orbitLine, lineMaterial);
+
+            scene.add(this.line);
+            // this.line = new THREE.Line(orbitLine, lineMaterial);
+        }
+
         let pX, pY;
         let a = planet.position.x - this.position.x;
         let b = planet.position.y - this.position.y;
 
-        let alpha = Math.atan(a/b) * 180 / Math.PI;
+        let alpha = Math.atan(a / b) * 180 / Math.PI;
         if (b > 0) alpha -= 180;
         let beta = 180 - 90 - Math.abs(alpha);
 
-        let alphaRad = alpha * Math.PI/180;
-        let betaRad = beta * Math.PI/180;
-        let gammaRad = 90 * Math.PI /180;
+        let alphaRad = alpha * Math.PI / 180;
+        let betaRad = beta * Math.PI / 180;
+        let gammaRad = 90 * Math.PI / 180;
 
-        pX = planet.gravity * Math.sin(alphaRad)/Math.sin(gammaRad);
-        pY = planet.gravity * Math.sin(betaRad)/Math.sin(gammaRad);
+        pX = planet.gravity * Math.sin(alphaRad) / Math.sin(gammaRad);
+        pY = planet.gravity * Math.sin(betaRad) / Math.sin(gammaRad);
 
         this.vector.x += pX;
         this.vector.y += pY;
@@ -108,10 +138,14 @@ function Orbiter (x, y, z, geometry, material) {
         this.mesh.position.x = this.position.x += this.vector.x;
         this.mesh.position.y = this.position.y += this.vector.y;
 
-        orbitLine.vertices.push(this.position.x, this.position.y, 0);
+        positions[this.iteration++] = this.position.x;
+        positions[this.iteration++] = this.position.y;
+        positions[this.iteration++] = 0;
+        this.line.geometry.attributes.position.needsUpdate = true;
+
     };
 
-    Orbiter.prototype.setVector = function (x,y) {
-        this.vector = {x,y};
+    Orbiter.prototype.setVector = function (x, y) {
+        this.vector = {x, y};
     }
 }
