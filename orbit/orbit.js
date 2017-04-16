@@ -1,7 +1,7 @@
 let SCREEN_WIDTH = window.innerWidth;
 let SCREEN_HEIGHT = window.innerHeight;
 
-let camera, container, scene, renderer, dirLight, orbiter, planet;
+let camera, container, scene, renderer, dirLight, orbiter, planet, orbitLine;
 
 init();
 render();
@@ -30,15 +30,31 @@ function init () {
     planet = new Planet(-.003, 0, 0, 0, planetoid, massMaterial);
     scene.add(planet.mesh);
 
-    orbiter = new Orbiter(20, 0, 0, orbiterGeom, orbiterMaterial);
-    orbiter.setVector(0,-.3);
+    orbiter = new Orbiter(10, 0, 0, orbiterGeom, orbiterMaterial);
+    orbiter.setVector(0,-.18);
     scene.add(orbiter.mesh);
+    orbiter2 = new Orbiter(6, 3, 0, orbiterGeom, orbiterMaterial);
+    orbiter2.setVector(.03,.18);
+    scene.add(orbiter2.mesh);
+
+    orbitLine = new THREE.Geometry();
+    let lineMaterial = new THREE.LineBasicMaterial({
+        color: 0x000033
+    });
+
+    orbitLine.vertices.push(5, 5, 0);
+    orbitLine.vertices.push(5, 15, 0);
+    orbitLine.vertices.push(25, 15, 0);
+
+    let line = new THREE.Line(orbitLine, lineMaterial);
+    scene.add(line);
 }
 
 
 function render () {
     renderer.render(scene, camera);
     orbiter.update(planet);
+    orbiter2.update(planet);
     requestAnimationFrame(render);
 }
 
@@ -70,6 +86,7 @@ function Orbiter (x, y, z, geometry, material) {
     this.mesh.position.set(x, y, z);
 
     Orbiter.prototype.update = function (planet) {
+        orbitLine.vertices.push(this.position.x, this.position.y, 0);
         let pX, pY;
         let a = planet.position.x - this.position.x;
         let b = planet.position.y - this.position.y;
@@ -85,13 +102,13 @@ function Orbiter (x, y, z, geometry, material) {
         pX = planet.gravity * Math.sin(alphaRad)/Math.sin(gammaRad);
         pY = planet.gravity * Math.sin(betaRad)/Math.sin(gammaRad);
 
-        console.log(b);
-
         this.vector.x += pX;
         this.vector.y += pY;
 
         this.mesh.position.x = this.position.x += this.vector.x;
         this.mesh.position.y = this.position.y += this.vector.y;
+
+        orbitLine.vertices.push(this.position.x, this.position.y, 0);
     };
 
     Orbiter.prototype.setVector = function (x,y) {
